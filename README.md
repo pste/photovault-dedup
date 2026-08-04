@@ -45,10 +45,13 @@ sh private/go.sh test ./...
 
 docker build -f .docker/Dockerfile -t photovault-dedup:dev .
 docker run --rm --network host \
-  -e API_URL=http://localhost:3000 -e API_TOKEN=dev -e MEDIA_ROOT=/data/photos \
-  -v ~/Pictures:/data/photos \
+  --env-file .env \
+  -v /percorso/delle/foto:/data/photos \
   photovault-dedup:dev
 ```
+
+Le credenziali stanno nel `.env` locale (copiato da `.env.dist`, gitignorato) e non vanno
+mai scritte sulla riga di comando: finirebbero nella cronologia della shell.
 
 ## Scelte implementative
 
