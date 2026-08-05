@@ -32,16 +32,22 @@ API_URL=http://localhost:3000
 API_TOKEN=
 MEDIA_ROOT=/data/photos
 LOG_LEVEL=trace
-DEDUP_WORKERS=3
 DEDUP_BATCH=200
 GOMEMLIMIT=400MiB
+ENQUEUE_ON_START=
 ```
+
+`ENQUEUE_ON_START` è l'elenco dei job da mettere in coda all'avvio, separati da virgola. Sul
+cluster la schedulazione la fa il CronJob Kubernetes: senza questa variabile il pod si
+sveglierebbe puntuale, troverebbe la coda vuota e uscirebbe senza fare niente. L'accodamento è
+idempotente — l'API tiene un solo job `pending` per nome — quindi non fa danni se lo stesso
+job è già stato richiesto dalla UI.
 
 ## Sviluppo
 
 ```bash
-sh private/go.sh build ./...
-sh private/go.sh test ./...
+sh scripts/go.sh build ./...
+sh scripts/go.sh test ./...
 
 docker build -f .docker/Dockerfile -t photovault-dedup:dev .
 docker run --rm --network host \

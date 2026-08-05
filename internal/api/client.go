@@ -109,6 +109,13 @@ func (c *Client) UpdateJob(jobID int, status, result string) error {
 	return c.do("PATCH", fmt.Sprintf("/api/internal/jobs/%d", jobID), body, nil)
 }
 
+// EnqueueJob mette in coda un job. L'API tiene un solo pending per nome,
+// quindi rilanciarlo non accumula lavoro doppio.
+func (c *Client) EnqueueJob(name string, when time.Time) error {
+	body := map[string]any{"name": name, "when": when.UTC().Format(time.RFC3339)}
+	return c.do("POST", "/api/internal/jobs", body, nil)
+}
+
 // GetPending: stage "hash" per i media senza sha256, "dhash" per quelli con
 // thumbnail pronta ma senza hash percettivo.
 func (c *Client) GetPending(stage string, limit int) ([]PendingMedia, error) {

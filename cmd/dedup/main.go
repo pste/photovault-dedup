@@ -8,6 +8,8 @@ import (
 	"log/slog"
 	"os"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/pste/photovault-dedup/internal/api"
 	"github.com/pste/photovault-dedup/internal/dedup"
@@ -26,6 +28,18 @@ func envInt(key string, fallback int) int {
 		return fallback
 	}
 	return value
+}
+
+// envList spezza una variabile "a,b,c" scartando gli spazi e i campi vuoti,
+// cosi' che una variabile non valorizzata dia una lista vuota e non [""].
+func envList(key string) []string {
+	out := []string{}
+	for _, part := range strings.Split(os.Getenv(key), ",") {
+		if name := strings.TrimSpace(part); name != "" {
+			out = append(out, name)
+		}
+	}
+	return out
 }
 
 func level(name string) slog.Level {
@@ -61,6 +75,23 @@ func main() {
 	}
 
 	log.Info("pod dedup avviato", "handlers", names)
+
+	// Su Kubernetes la schedulazione la fa il CronJob, non questo pod: e' lui
+	// che, svegliandosi, mette in coda il lavoro da fare. Senza, il pod
+	// troverebbe la coda vuota e uscirebbe subito. L'accodamento e' idempotente
+	// (un solo job pending per nome), quindi non fa danni se l'utente lo ha
+	// gia' richiesto dalla UI.
+	for _, name := range envList("ENQUEUE_ON_START") {
+		if _, ok := handlers[name]; !ok {
+			log.Error("ENQUEUE_ON_START contiene un job che questo pod non sa eseguire", "name", name)
+			os.Exit(1)
+		}
+		if err := client.EnqueueJob(name, time.Now()); err != nil {
+			log.Error("accodamento fallito", "name", name, "err", err)
+			os.Exit(1)
+		}
+		log.Info("job accodato all'avvio", "name", name)
+	}
 
 	executed := 0
 	for {
