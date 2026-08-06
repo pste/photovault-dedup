@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 )
@@ -15,12 +16,14 @@ type Client struct {
 	baseURL string
 	token   string
 	http    *http.Client
+	log     *slog.Logger
 }
 
-func New(baseURL, token string) *Client {
+func New(baseURL, token string, log *slog.Logger) *Client {
 	return &Client{
 		baseURL: baseURL,
 		token:   token,
+		log:     log,
 		// Il rebuild dei gruppi confronta l'intero corpus al primo giro: puo'
 		// richiedere minuti su un archivio grande.
 		http: &http.Client{Timeout: 300 * time.Second},
@@ -102,6 +105,21 @@ func (c *Client) ClaimJob(names []string) (*Job, error) {
 	var job *Job
 	err := c.do("POST", "/api/internal/jobs/claim", map[string]any{"names": names}, &job)
 	return job, err
+}
+
+// Heartbeat dice all'API che questo pod e' vivo e sta ancora lavorando sul job.
+// Senza, dopo mezz'ora di silenzio il claim lo considera orfano e lo recupera:
+// il calcolo degli sha256 sull'intero archivio dura molto piu' di mezz'ora.
+//
+// Un errore qui non e' fatale: il lavoro fatto e' gia' salvato, e la coda in
+// database resta la fonte di verita'.
+func (c *Client) Heartbeat(jobID int) {
+	if jobID <= 0 {
+		return
+	}
+	if err := c.do("POST", fmt.Sprintf("/api/internal/jobs/%d/heartbeat", jobID), nil, nil); err != nil {
+		c.log.Warn("battito rifiutato", "job_id", jobID, "err", err)
+	}
 }
 
 func (c *Client) UpdateJob(jobID int, status, result string) error {

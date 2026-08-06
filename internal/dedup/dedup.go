@@ -43,13 +43,13 @@ func (d *Dedup) originalPath(item api.PendingMedia) string {
 }
 
 // Run esegue le tre fasi in ordine: sha256, dHash, raggruppamento.
-func (d *Dedup) Run() (string, error) {
-	hashed, err := d.hashOriginals()
+func (d *Dedup) Run(jobID int) (string, error) {
+	hashed, err := d.hashOriginals(jobID)
 	if err != nil {
 		return "", err
 	}
 
-	perceptual, err := d.hashThumbnails()
+	perceptual, err := d.hashThumbnails(jobID)
 	if err != nil {
 		return "", err
 	}
@@ -68,7 +68,7 @@ func (d *Dedup) Run() (string, error) {
 // una passata di lettura completa sulla share. E' anche il motivo per cui e'
 // incrementale -- solo i media senza hash vengono letti, quindi dopo il primo
 // giro costa quasi nulla.
-func (d *Dedup) hashOriginals() (int, error) {
+func (d *Dedup) hashOriginals(jobID int) (int, error) {
 	done := 0
 	for {
 		pending, err := d.client.GetPending("hash", d.cfg.Batch)
@@ -105,13 +105,14 @@ func (d *Dedup) hashOriginals() (int, error) {
 			return done, fmt.Errorf("invio sha256: %w", err)
 		}
 		done += len(results)
+		d.client.Heartbeat(jobID)
 		d.log.Info("sha256 calcolati", "totale", done)
 	}
 }
 
 // hashThumbnails lavora sulle thumbnail 's': ~15 KB invece di 6 MB, e sono
 // gia' ridimensionate.
-func (d *Dedup) hashThumbnails() (int, error) {
+func (d *Dedup) hashThumbnails(jobID int) (int, error) {
 	done := 0
 	for {
 		pending, err := d.client.GetPending("dhash", d.cfg.Batch)
@@ -146,6 +147,7 @@ func (d *Dedup) hashThumbnails() (int, error) {
 			return done, fmt.Errorf("invio dHash: %w", err)
 		}
 		done += len(results)
+		d.client.Heartbeat(jobID)
 		d.log.Info("dHash calcolati", "totale", done)
 	}
 }

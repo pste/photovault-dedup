@@ -59,13 +59,16 @@ func main() {
 	logLevel := level(env("LOG_LEVEL", "info"))
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel}))
 
-	client := api.New(env("API_URL", "http://localhost:3000"), os.Getenv("API_TOKEN"))
+	client := api.New(env("API_URL", "http://localhost:3000"), os.Getenv("API_TOKEN"), log)
 	runner := dedup.New(dedup.Config{
 		MediaRoot: env("MEDIA_ROOT", "/data/photos"),
 		Batch:     envInt("DEDUP_BATCH", 200),
 	}, client, log)
 
-	handlers := map[string]func() (string, error){
+	// L'handler riceve il job id: deve mandarne il battito a ogni blocco, o dopo
+	// mezz'ora l'API lo considera orfano. Gli sha256 sull'intero archivio
+	// durano molto di piu'.
+	handlers := map[string]func(int) (string, error){
 		"dedup": runner.Run,
 	}
 
@@ -105,7 +108,7 @@ func main() {
 		}
 
 		log.Info("job preso in carico", "job_id", job.JobID, "name", job.Name)
-		result, err := handlers[job.Name]()
+		result, err := handlers[job.Name](job.JobID)
 
 		status := "done"
 		if err != nil {
