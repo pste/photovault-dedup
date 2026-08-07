@@ -48,7 +48,24 @@ func (d *Dedup) Run(jobID int) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	return d.perceptualAndGroups(jobID, hashed)
+}
 
+// RunPerceptual salta gli sha256 e fa solo la parte percettiva.
+//
+// Serve perche' le due meta' hanno costi incomparabili: gli sha256 leggono ogni
+// originale -- 830 GB sull'archivio vero -- mentre i dHash leggono le thumbnail
+// 's', 15 KB l'una. Chi vuole vedere i duplicati **simili** senza aspettare un
+// giorno di letture, o rilanciare la sola parte percettiva quando arrivano
+// nuove anteprime, non deve essere costretto a rifare anche l'altra.
+//
+// Il rebuild resta incluso: senza, i dHash appena calcolati non diventerebbero
+// gruppi e il job non produrrebbe niente di visibile.
+func (d *Dedup) RunPerceptual(jobID int) (string, error) {
+	return d.perceptualAndGroups(jobID, 0)
+}
+
+func (d *Dedup) perceptualAndGroups(jobID, hashed int) (string, error) {
 	perceptual, err := d.hashThumbnails(jobID)
 	if err != nil {
 		return "", err

@@ -71,6 +71,9 @@ func main() {
 	// durano molto di piu'.
 	handlers := map[string]func(int) (string, error){
 		"dedup": runner.Run,
+		// Solo la parte percettiva: i dHash dalle thumbnail e il rebuild dei
+		// gruppi, senza gli sha256 che leggono ogni originale.
+		"dhash": runner.RunPerceptual,
 	}
 
 	names := make([]string, 0, len(handlers))
