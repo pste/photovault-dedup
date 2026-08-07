@@ -10,10 +10,26 @@ La share è montata in **sola lettura**: questo servizio non cancella e non spos
 cancellazioni approvate dall'utente le esegue `photovault-scan` (job `trashapply`), l'unico
 componente con il mount in scrittura.
 
+## Job gestiti
+
+| Job | Cosa fa |
+|---|---|
+| `dedup` | sha256 dagli originali, poi dHash dalle thumbnail, poi il rebuild dei gruppi |
+| `dhash` | **solo** dHash e rebuild: salta gli sha256 |
+
+Le due metà hanno costi incomparabili, e per questo `dhash` esiste come job a sé: gli sha256
+leggono **ogni originale** — 830 GB sull'archivio di riferimento — mentre i dHash leggono le
+thumbnail `s`, 15 KB l'una. Misurato sullo stesso archivio: **3.000 dHash al minuto** contro
+le 65 anteprime al minuto del job `thumbs`, ed è tutta differenza di IO.
+
+Serve in due casi: vedere i duplicati *simili* senza aspettare un giorno di letture, e
+ricalcolare i dHash quando arrivano nuove thumbnail senza rileggere gli originali.
+
 ## Cosa fa, in ordine
 
 1. `GET /api/internal/dedup/pending?stage=hash` → media senza `content_hash`
    → legge l'originale dalla share → **sha256** → `POST /api/internal/dedup/hashes`
+   *(saltato dal job `dhash`)*
 2. `GET /api/internal/dedup/pending?stage=dhash` → media con thumbnail pronta ma senza `dhash`
    → legge la thumbnail `s` → **dHash a 64 bit** → `POST /api/internal/dedup/hashes`
 3. `POST /api/internal/dedup/rebuild` → l'API esegue la SQL di raggruppamento e materializza
