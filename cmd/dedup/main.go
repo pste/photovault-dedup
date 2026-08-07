@@ -5,6 +5,7 @@
 package main
 
 import (
+	"errors"
 	"log/slog"
 	"os"
 	"strconv"
@@ -109,6 +110,14 @@ func main() {
 
 		log.Info("job preso in carico", "job_id", job.JobID, "name", job.Name)
 		result, err := handlers[job.Name](job.JobID)
+
+		// Un job che non e' piu' nostro non si tocca: scriverci sopra
+		// significherebbe raccontare l'esito di un lavoro che sta facendo
+		// qualcun altro. Si esce e basta.
+		if errors.Is(err, api.ErrJobLost) {
+			log.Error("job perso", "job_id", job.JobID, "name", job.Name, "err", err)
+			break
+		}
 
 		status := "done"
 		if err != nil {

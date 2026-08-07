@@ -105,7 +105,11 @@ func (d *Dedup) hashOriginals(jobID int) (int, error) {
 			return done, fmt.Errorf("invio sha256: %w", err)
 		}
 		done += len(results)
-		d.client.Heartbeat(jobID)
+		// Un 409 dice che il job non e' piu' nostro: si smette subito, perche'
+		// continuare significherebbe rifare il lavoro di un altro pod.
+		if err := d.client.Heartbeat(jobID); err != nil {
+			return done, err
+		}
 		d.log.Info("sha256 calcolati", "totale", done)
 	}
 }
@@ -147,7 +151,9 @@ func (d *Dedup) hashThumbnails(jobID int) (int, error) {
 			return done, fmt.Errorf("invio dHash: %w", err)
 		}
 		done += len(results)
-		d.client.Heartbeat(jobID)
+		if err := d.client.Heartbeat(jobID); err != nil {
+			return done, err
+		}
 		d.log.Info("dHash calcolati", "totale", done)
 	}
 }
