@@ -71,15 +71,41 @@ func (d *Dedup) perceptualAndGroups(jobID int, hashed tally) (string, error) {
 		return "", err
 	}
 
-	outcome, err := d.client.Rebuild()
+	exact, similar, err := d.rebuild(jobID)
 	if err != nil {
-		return "", fmt.Errorf("rebuild: %w", err)
+		return "", err
 	}
 
 	return fmt.Sprintf(
 		"%s, %s, %d gruppi esatti, %d gruppi simili",
 		hashed.describe("sha256"), perceptual.describe("dHash"),
-		outcome.GruppiEsatti, outcome.GruppiSimili), nil
+		exact, similar), nil
+}
+
+// rebuild richiama l'API finche' non restano media da confrontare.
+//
+// L'API confronta un blocco per chiamata: un arretrato grande in una richiesta
+// sola durava piu' del timeout del client -- 63.000 dHash nuovi dopo le
+// anteprime di agosto, circa 90 minuti -- e la risposta non arrivava mai. A
+// blocchi ogni chiamata resta breve, il battito parte fra l'una e l'altra, e
+// un riavvio dell'API perde al massimo un blocco.
+func (d *Dedup) rebuild(jobID int) (exact, similar int, err error) {
+	for {
+		outcome, err := d.client.Rebuild()
+		if err != nil {
+			return exact, similar, fmt.Errorf("rebuild: %w", err)
+		}
+		exact += outcome.GruppiEsatti
+		similar += outcome.GruppiSimili
+		if outcome.DaConfrontare <= 0 {
+			return exact, similar, nil
+		}
+		d.log.Info("rebuild in corso", "confrontati", outcome.Confrontati,
+			"da_confrontare", outcome.DaConfrontare, "gruppi_simili", similar)
+		if err := d.client.Heartbeat(jobID); err != nil {
+			return exact, similar, err
+		}
+	}
 }
 
 // tally conta l'esito di una fase. I falliti finiscono nel risultato del job:

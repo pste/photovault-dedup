@@ -60,6 +60,9 @@ type RebuildOutcome struct {
 	GruppiSimili  int `json:"gruppi_simili"`
 	Confrontati   int `json:"confrontati"`
 	GruppiRimossi int `json:"gruppi_rimossi"`
+	// Media ancora da confrontare dopo questo blocco. Un'API che non lavora a
+	// blocchi non lo manda, e lo zero ferma il ciclo dopo una chiamata.
+	DaConfrontare int `json:"da_confrontare"`
 }
 
 // ErrJobLost dice che l'API non riconosce piu' questo pod come titolare del
