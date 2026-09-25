@@ -15,4 +15,4 @@ docker run --rm \
   -v photovault-gomod:/go/pkg/mod \
   -v photovault-gobuild:/root/.cache/go-build \
   -e GOFLAGS=-buildvcs=false \
-  golang:1.25-alpine go "$@"
+  golang:1.25.14-alpine go "$@"
