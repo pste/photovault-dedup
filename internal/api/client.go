@@ -158,9 +158,10 @@ func (c *Client) EnqueueJob(name string, when time.Time) error {
 
 // GetPending: stage "hash" per i media senza sha256, "dhash" per quelli con
 // thumbnail pronta ma senza hash percettivo.
-func (c *Client) GetPending(stage string, limit int) ([]PendingMedia, error) {
+// GetPending restituisce la coda a partire dal media_id successivo ad after.
+func (c *Client) GetPending(stage string, limit, after int) ([]PendingMedia, error) {
 	var out []PendingMedia
-	err := c.do("GET", fmt.Sprintf("/api/internal/pending/%s?limit=%d", stage, limit), nil, &out)
+	err := c.do("GET", fmt.Sprintf("/api/internal/pending/%s?limit=%d&after=%d", stage, limit, after), nil, &out)
 	return out, err
 }
 
